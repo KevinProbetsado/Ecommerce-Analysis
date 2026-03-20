@@ -93,14 +93,5 @@ ORDER BY total_paid DESC;
 2. Import all CSV files into a SQL Server database named `ecommerce_practice`
 3. Open `Ecommerce_Analysis.sql` and run sections sequentially in SSMS
 
----
-
-## About Me
-
-I'm an aspiring data analyst based in the Philippines with a BS in Mathematics, passionate about turning messy, real-world data into clear business insights.
-
-📫 [LinkedIn](https://www.linkedin.com/in/kevin-c-probetsado-aa9a64287/) · 🏠 [GitHub Profile](https://github.com/KevinProbetsado)
-
----
 
 *Dataset: Olist Store, made available on Kaggle under a CC BY-NC-SA 4.0 license.*
