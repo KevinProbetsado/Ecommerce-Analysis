@@ -1,16 +1,14 @@
-# Ecommerce-Analysis
-
 # 🛒 Olist E-Commerce Analysis | SQL
 
 > Part of my data analytics portfolio — [View all projects](https://github.com/KevinProbetsado)
 
 ## Overview
 
-An end-to-end data cleaning and analysis project using the **Brazilian Olist E-Commerce dataset** — a real-world, multi-table dataset covering orders, customers, products, payments, reviews, and sellers. This project demonstrates how raw, messy data is transformed into business-ready insights using SQL Server.
+An end-to-end data cleaning and analysis project using the **Brazilian Olist E-Commerce dataset** — a real-world, multi-table dataset covering orders, customers, products, payments, reviews, and sellers. This project investigates revenue trends, delivery performance, payment behavior, and seller concentration using SQL Server.
 
 **Tools:** Microsoft SQL Server  
 **Dataset:** [Olist Brazilian E-Commerce (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)  
-**Skills Demonstrated:** Data Cleaning · NULL Handling · Duplicate Detection · JOINs · Aggregations · Data Transformation
+**Skills Demonstrated:** Data Cleaning · NULL Handling · Duplicate Detection · JOINs · Aggregations · DATEDIFF · Data Transformation
 
 ---
 
@@ -35,8 +33,24 @@ The Olist dataset spans 9 relational tables:
 ## Business Questions Answered
 
 1. Which **product categories** generate the most revenue?
-2. Who are the **top customers** by total amount paid?
-3. Are there **data quality issues** in the dataset, and how were they resolved?
+2. Who are the **top 10 customers** by total amount paid?
+3. What is the **monthly revenue trend** over time?
+4. Which **payment method** is most used?
+5. Which **states have the slowest delivery times**?
+6. Which **sellers** generate the most revenue?
+7. What is the **average review score** by product category? *(in progress)*
+8. What **percentage of orders** are delivered on time? *(in progress)*
+
+---
+
+## Key Findings
+
+| Analysis | Finding |
+|---|---|
+| Monthly Revenue | Peaked in Nov 2017 (~$1.19M), likely driven by Black Friday. 2016 and late 2018 data are incomplete. |
+| Payment Methods | 76% of payments are via credit card. Heavy concentration on one payment method creates risk if processing is disrupted. |
+| Delivery Time | RR state averages 29 days vs SP at 8 days — nearly 4x slower, likely due to distance from distribution centers. |
+| Top Sellers | 9 of the top 10 sellers are from São Paulo (SP), indicating geographic revenue concentration. |
 
 ---
 
@@ -57,32 +71,55 @@ Previewed all 9 tables to understand structure, column names, and data types bef
 
 ### 📊 Section 3 — Analysis
 
-**Top 5 Product Categories by Revenue**
+**Monthly Revenue Trend**
 ```sql
-SELECT TOP 5
-    prod_cat.product_category_name_english,
-    ROUND(SUM(order_item.price), 2) AS total_revenue
-FROM olist_order_items_dataset order_item
-JOIN olist_products_dataset prod
-    ON order_item.product_id = prod.product_id
-JOIN product_category_name_translation prod_cat
-    ON prod.product_category_name = prod_cat.product_category_name
-GROUP BY prod_cat.product_category_name_english
+SELECT 
+    YEAR(order_purchase_timestamp) AS year,
+    MONTH(order_purchase_timestamp) AS month,
+    ROUND(SUM(pay.payment_value), 2) AS monthly_revenue
+FROM olist_orders_dataset ord
+JOIN olist_order_payments_dataset pay
+    ON ord.order_id = pay.order_id
+GROUP BY YEAR(order_purchase_timestamp), MONTH(order_purchase_timestamp)
+ORDER BY year, month;
+```
+
+**Payment Method Analysis**
+```sql
+SELECT 
+    payment_type, 
+    COUNT(payment_type) AS total_transactions, 
+    ROUND(SUM(payment_value), 2) AS total_revenue
+FROM olist_order_payments_dataset
+GROUP BY payment_type
 ORDER BY total_revenue DESC;
 ```
 
-**Top 10 Customers by Total Spend**
+**Average Delivery Time by State**
 ```sql
-SELECT TOP 10
-    ord.customer_id,
-    UPPER(cust.customer_city) AS customer_city,
-    UPPER(cust.customer_state) AS customer_state,
-    ROUND(SUM(pay.payment_value), 2) AS total_paid
-FROM olist_order_payments_dataset pay
-JOIN olist_orders_dataset ord ON pay.order_id = ord.order_id
-JOIN olist_customers_dataset cust ON ord.customer_id = cust.customer_id
-GROUP BY ord.customer_id, cust.customer_city, cust.customer_state
-ORDER BY total_paid DESC;
+SELECT 
+    cust.customer_state, 
+    AVG(DATEDIFF(day, ord.order_purchase_timestamp, ord.order_delivered_customer_date)) AS avg_days
+FROM olist_customers_dataset cust
+JOIN olist_orders_dataset ord
+    ON cust.customer_id = ord.customer_id
+WHERE ord.order_delivered_customer_date IS NOT NULL
+GROUP BY cust.customer_state
+ORDER BY avg_days DESC;
+```
+
+**Top 10 Sellers by Revenue**
+```sql
+SELECT TOP 10 
+    ord.seller_id, 
+    sel.seller_city, 
+    sel.seller_state, 
+    ROUND(SUM(pay.payment_value), 2) AS total_revenue
+FROM olist_order_items_dataset ord
+JOIN olist_order_payments_dataset pay ON ord.order_id = pay.order_id
+JOIN olist_sellers_dataset sel ON ord.seller_id = sel.seller_id
+GROUP BY ord.seller_id, sel.seller_city, sel.seller_state
+ORDER BY total_revenue DESC;
 ```
 
 ---
@@ -91,7 +128,8 @@ ORDER BY total_paid DESC;
 
 1. Download the [Olist dataset from Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
 2. Import all CSV files into a SQL Server database named `ecommerce_practice`
-3. Open `Ecommerce_Analysis.sql` and run sections sequentially in SSMS
+3. Open `ecommerce_analysis.sql` and run sections sequentially in SSMS
 
+---
 
 *Dataset: Olist Store, made available on Kaggle under a CC BY-NC-SA 4.0 license.*
