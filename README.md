@@ -1,135 +1,128 @@
-# 🛒 Olist E-Commerce Analysis | SQL
+# Brazilian E-Commerce Sales Analysis
+### SQL Data Analysis Project | Microsoft SQL Server
 
 > Part of my data analytics portfolio — [View all projects](https://github.com/KevinProbetsado)
 
+---
+
 ## Overview
 
-An end-to-end data cleaning and analysis project using the **Brazilian Olist E-Commerce dataset** — a real-world, multi-table dataset covering orders, customers, products, payments, reviews, and sellers. This project investigates revenue trends, delivery performance, payment behavior, and seller concentration using SQL Server.
+An end-to-end data cleaning and business analysis project using the **Brazilian Olist E-Commerce dataset** — a real-world, multi-table dataset covering 100,000+ orders from 2016 to 2018. This project demonstrates how raw messy data is transformed into actionable business insights using SQL Server.
 
-**Tools:** Microsoft SQL Server  
-**Dataset:** [Olist Brazilian E-Commerce (Kaggle)](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)  
-**Skills Demonstrated:** Data Cleaning · NULL Handling · Duplicate Detection · JOINs · Aggregations · DATEDIFF · Data Transformation
+**Tool:** Microsoft SQL Server · SSMS  
+**Dataset:** [Olist Brazilian E-Commerce — Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)  
+**Skills:** Data Cleaning · NULL Handling · Duplicate Detection · JOINs · Aggregations · Subqueries · Window Functions
 
 ---
 
-## Dataset Overview
+## Dataset
 
-The Olist dataset spans 9 relational tables:
+9 relational tables covering the full order lifecycle:
 
 | Table | Description |
 |---|---|
 | `olist_orders_dataset` | Order status and timestamps |
 | `olist_order_items_dataset` | Products per order with price and freight |
 | `olist_order_payments_dataset` | Payment types and values |
-| `olist_order_reviews_dataset` | Customer review scores and comments |
-| `olist_customers_dataset` | Customer location data |
+| `olist_order_reviews_dataset` | Customer review scores |
+| `olist_customers_dataset` | Customer location and unique ID |
 | `olist_products_dataset` | Product details and categories |
-| `product_category_name_translation` | Portuguese → English category names |
+| `product_category_name_translation` | Portuguese to English category names |
 | `olist_sellers_dataset` | Seller location data |
 | `olist_geolocation_dataset` | ZIP code coordinates |
 
 ---
 
-## Business Questions Answered
-
-1. Which **product categories** generate the most revenue?
-2. Who are the **top 10 customers** by total amount paid?
-3. What is the **monthly revenue trend** over time?
-4. Which **payment method** is most used?
-5. Which **states have the slowest delivery times**?
-6. Which **sellers** generate the most revenue?
-7. What is the **average review score** by product category? *(in progress)*
-8. What **percentage of orders** are delivered on time? *(in progress)*
-
----
-
-## Key Findings
-
-| Analysis | Finding |
-|---|---|
-| Monthly Revenue | Peaked in Nov 2017 (~$1.19M), likely driven by Black Friday. 2016 and late 2018 data are incomplete. |
-| Payment Methods | 76% of payments are via credit card. Heavy concentration on one payment method creates risk if processing is disrupted. |
-| Delivery Time | RR state averages 29 days vs SP at 8 days — nearly 4x slower, likely due to distance from distribution centers. |
-| Top Sellers | 9 of the top 10 sellers are from São Paulo (SP), indicating geographic revenue concentration. |
-
----
-
 ## Project Workflow
 
-### 🔍 Section 1 — Data Exploration
+### Section 1 — Data Exploration
 Previewed all 9 tables to understand structure, column names, and data types before any transformation.
 
-### 🧹 Section 2 — Data Cleaning
+### Section 2 — Data Cleaning
 
 | Issue Found | Action Taken |
 |---|---|
-| Duplicate `order_id` in payments | Verified as expected — one order can have multiple payment types |
-| 610 NULL `product_category_name` values | Replaced with `'unknown'` via `UPDATE` |
-| Malformed column headers in category translation table | Renamed using `sp_rename` |
-| Extra header row imported as data row | Deleted the erroneous record |
+| Duplicate `order_id` in payments | Investigated — confirmed as expected. One order can have multiple payment types (e.g. credit card + voucher) |
+| 610 NULL `product_category_name` values | Replaced with `'unknown'` using `UPDATE` to preserve row integrity |
+| Malformed column headers in translation table | Renamed using `sp_rename` |
+| Extra header row imported as a data row | Deleted using `DELETE` |
 | NULLs checked across customers and orders | No critical NULLs found |
 
-### 📊 Section 3 — Analysis
+### Section 3 — Business Analysis
 
-**Monthly Revenue Trend**
-```sql
-SELECT 
-    YEAR(order_purchase_timestamp) AS year,
-    MONTH(order_purchase_timestamp) AS month,
-    ROUND(SUM(pay.payment_value), 2) AS monthly_revenue
-FROM olist_orders_dataset ord
-JOIN olist_order_payments_dataset pay
-    ON ord.order_id = pay.order_id
-GROUP BY YEAR(order_purchase_timestamp), MONTH(order_purchase_timestamp)
-ORDER BY year, month;
-```
+10 business questions answered across revenue, customers, sellers, and logistics.
 
-**Payment Method Analysis**
-```sql
-SELECT 
-    payment_type, 
-    COUNT(payment_type) AS total_transactions, 
-    ROUND(SUM(payment_value), 2) AS total_revenue
-FROM olist_order_payments_dataset
-GROUP BY payment_type
-ORDER BY total_revenue DESC;
-```
+---
 
-**Average Delivery Time by State**
-```sql
-SELECT 
-    cust.customer_state, 
-    AVG(DATEDIFF(day, ord.order_purchase_timestamp, ord.order_delivered_customer_date)) AS avg_days
-FROM olist_customers_dataset cust
-JOIN olist_orders_dataset ord
-    ON cust.customer_id = ord.customer_id
-WHERE ord.order_delivered_customer_date IS NOT NULL
-GROUP BY cust.customer_state
-ORDER BY avg_days DESC;
-```
+## Business Questions & Key Findings
 
-**Top 10 Sellers by Revenue**
-```sql
-SELECT TOP 10 
-    ord.seller_id, 
-    sel.seller_city, 
-    sel.seller_state, 
-    ROUND(SUM(pay.payment_value), 2) AS total_revenue
-FROM olist_order_items_dataset ord
-JOIN olist_order_payments_dataset pay ON ord.order_id = pay.order_id
-JOIN olist_sellers_dataset sel ON ord.seller_id = sel.seller_id
-GROUP BY ord.seller_id, sel.seller_city, sel.seller_state
-ORDER BY total_revenue DESC;
-```
+### 1. Top 5 Product Categories by Revenue
+Health & beauty, watches & gifts, and bed/bath/table lead revenue — Olist is driven by lifestyle products, not electronics.
+
+### 2. Top 10 Customers by Total Spend
+High-value customers are concentrated in São Paulo and Rio de Janeiro. City names were formatted using `UPPER()`, `LEFT()`, and `SUBSTRING()` for clean presentation.
+
+### 3. Monthly Revenue Trend (2016–2018)
+Revenue grew consistently month over month with spikes around November (Black Friday) and Q1 2018 — the business was in a strong growth phase during this period.
+
+> Only `delivered` orders were included to exclude cancelled and refunded transactions.
+
+### 4. Payment Method Analysis
+Credit card dominates as the preferred payment method by both volume and total revenue. Boleto (bank slip) is the second most common method — reflecting Brazil's payment culture.
+
+### 5. Average Delivery Time by State
+Northern states have significantly longer delivery times than southern states, likely due to geographic distance from distribution centers concentrated in São Paulo.
+
+### 6. Top 10 Sellers by Revenue
+Top sellers are concentrated in São Paulo state, consistent with Olist's logistics hub being in the southeast region.
+
+### 7. Top Sellers by Average Review Score
+Filtered to sellers with **50+ reviews** to remove small sample bias.
+
+> A seller with a 5.0 average from 2 reviews is far less reliable than one with 4.7 from 500 reviews. Volume matters when evaluating seller quality.
+
+### 8. Customer Lifetime Value (LTV)
+Most customers have an LTV below R$500. A small VIP segment spends R$1,000+ — a classic 80/20 pattern where a minority of customers drives most of the revenue.
+
+### 9. Repeat Customer Rate
+
+| Metric | Finding |
+|---|---|
+| Total customers | ~96,000 |
+| Repeat customers | ~3–4% |
+| Repeat percentage | ~3.2% |
+
+> `customer_unique_id` was used instead of `customer_id` — Olist assigns a **new** `customer_id` per order for privacy. Using `customer_id` would make every customer appear as a first-time buyer.
+
+### 10. Average Days Between Repeat Orders
+
+| Metric | Finding |
+|---|---|
+| Overall average | 80 days (~2.5 months) |
+| Top repeat customers | 180+ days between orders |
+
+> Olist's customer base is **need-driven, not habit-driven.** An 80-day average repeat gap is consistent with a general marketplace selling durable goods rather than everyday consumables. This is not necessarily a retention problem — it reflects the nature of the product mix.
+
+---
+
+## Key Takeaways
+
+> Olist shows strong and consistent revenue growth from 2016 to 2018, driven by lifestyle product categories and a credit-card-dominant payment culture. However, only ~3% of customers place more than one order, and repeat buyers take an average of 80 days to return.
+>
+> To improve retention, Olist could:
+> - Expand into consumable or replenishable product categories
+> - Build loyalty programs targeting high-LTV customers
+> - Address long delivery times in northern states which may discourage repeat purchases
 
 ---
 
 ## How to Run
 
 1. Download the [Olist dataset from Kaggle](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
-2. Import all CSV files into a SQL Server database named `ecommerce_practice`
-3. Open `ecommerce_analysis.sql` and run sections sequentially in SSMS
+2. Import all CSV files into SQL Server as a database named `ecommerce_practice`
+3. Open `ecommerce_analysis.sql` in SSMS
+4. Run each section sequentially
 
 ---
 
-*Dataset: Olist Store, made available on Kaggle under a CC BY-NC-SA 4.0 license.*
+*Dataset: Olist Store — made available on Kaggle under CC BY-NC-SA 4.0 license.*
